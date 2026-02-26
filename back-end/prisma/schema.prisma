@@ -1,0 +1,244 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+//////////////////////////////////////////////////////
+// USER
+//////////////////////////////////////////////////////
+enum Role {
+  ADMIN
+  USER
+}
+
+model User {
+  id             String            @id @default(uuid())
+  name           String
+  email          String            @unique
+  phone          String
+  passwordHash   String?
+  googleId       String?           @unique
+  role           Role              @default(USER)
+  subscription   Subscription?
+  clients        Client[]
+  animals        Animal[]
+  procedures     ProcedureType[]
+  appointments   Appointment[]
+  medicalRecords MedicalRecord[]
+  financials     FinancialRecord[]
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+}
+
+//////////////////////////////////////////////////////
+// PLANS & SUBSCRIPTIONS
+//////////////////////////////////////////////////////
+
+model Plan {
+  id            String         @id @default(uuid())
+  name          String
+  priceMonthly  Decimal
+  priceYearly   Decimal?
+  trialDays     Int?
+  maxClients    Int? // null = ilimitado
+  createdAt     DateTime       @default(now())
+  subscriptions Subscription[]
+}
+
+model Subscription {
+  id                    String             @id @default(uuid())
+  status                SubscriptionStatus
+  gatewayCustomerId     String?
+  gatewaySubscriptionId String?
+  currentPeriodEnd      DateTime?
+  trialEndDate          DateTime?
+  userId                String             @unique
+  user                  User               @relation(fields: [userId], references: [id])
+  planId                String
+  plan                  Plan               @relation(fields: [planId], references: [id])
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
+
+  @@index([planId])
+}
+
+enum SubscriptionStatus {
+  TRIAL
+  ACTIVE
+  PAST_DUE
+  CANCELED
+  INACTIVE
+}
+
+//////////////////////////////////////////////////////
+// CLIENTS (TUTORES)
+//////////////////////////////////////////////////////
+
+model Client {
+  id        String   @id @default(uuid())
+  name      String
+  email     String?
+  phone     String?
+  document  String?
+  notes     String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  animals   Animal[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+}
+
+//////////////////////////////////////////////////////
+// ANIMALS
+//////////////////////////////////////////////////////
+
+model Animal {
+  id             String          @id @default(uuid())
+  name           String
+  species        String
+  breed          String?
+  sex            AnimalSex?
+  birthDate      DateTime?
+  weight         Float?
+  color          String?
+  notes          String?
+  userId         String
+  user           User            @relation(fields: [userId], references: [id])
+  clientId       String
+  client         Client          @relation(fields: [clientId], references: [id])
+  appointments   Appointment[]
+  medicalRecords MedicalRecord[]
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  @@index([userId])
+  @@index([clientId])
+}
+
+enum AnimalSex {
+  MALE
+  FEMALE
+}
+
+//////////////////////////////////////////////////////
+// PROCEDURE TYPES (PERSONALIZADOS)
+//////////////////////////////////////////////////////
+
+model ProcedureType {
+  id           String        @id @default(uuid())
+  name         String
+  price        Decimal?
+  duration     Int? // minutos (opcional)
+  color        String?
+  userId       String
+  user         User          @relation(fields: [userId], references: [id])
+  appointments Appointment[]
+  createdAt    DateTime      @default(now())
+
+  @@index([userId])
+}
+
+//////////////////////////////////////////////////////
+// APPOINTMENTS (AGENDA)
+//////////////////////////////////////////////////////
+
+model Appointment {
+  id              String            @id @default(uuid())
+  dateTime        DateTime
+  status          AppointmentStatus
+  notes           String?
+  price           Decimal?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  userId          String
+  user            User              @relation(fields: [userId], references: [id])
+  animalId        String
+  animal          Animal            @relation(fields: [animalId], references: [id])
+  procedureTypeId String
+  procedureType   ProcedureType     @relation(fields: [procedureTypeId], references: [id])
+  medicalRecord   MedicalRecord?
+  financial       FinancialRecord?
+
+  @@index([userId])
+  @@index([animalId])
+  @@index([dateTime])
+}
+
+enum AppointmentStatus {
+  SCHEDULED
+  COMPLETED
+  CANCELED
+  NO_SHOW
+}
+
+//////////////////////////////////////////////////////
+// MEDICAL RECORD (PRONTUÁRIO)
+//////////////////////////////////////////////////////
+
+model MedicalRecord {
+  id            String       @id @default(uuid())
+  date          DateTime     @default(now())
+  complaint     String? // queixa principal
+  anamnesis     String? // histórico
+  diagnosis     String?
+  treatment     String?
+  observations  String?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  userId        String
+  user          User         @relation(fields: [userId], references: [id])
+  animalId      String
+  animal        Animal       @relation(fields: [animalId], references: [id])
+  appointmentId String?      @unique
+  appointment   Appointment? @relation(fields: [appointmentId], references: [id])
+
+  @@index([userId])
+  @@index([animalId])
+}
+
+//////////////////////////////////////////////////////
+// FINANCIAL
+//////////////////////////////////////////////////////
+
+model FinancialRecord {
+  id            String         @id @default(uuid())
+  description   String
+  amount        Decimal
+  type          FinancialType
+  status        PaymentStatus
+  paymentMethod PaymentMethod?
+  date          DateTime       @default(now())
+  userId        String
+  user          User           @relation(fields: [userId], references: [id])
+  appointmentId String?        @unique
+  appointment   Appointment?   @relation(fields: [appointmentId], references: [id])
+  createdAt     DateTime       @default(now())
+
+  @@index([userId])
+  @@index([date])
+}
+
+enum FinancialType {
+  INCOME
+  EXPENSE
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  CANCELED
+}
+
+enum PaymentMethod {
+  CASH
+  PIX
+  CREDIT_CARD
+  DEBIT_CARD
+  TRANSFER
+}
