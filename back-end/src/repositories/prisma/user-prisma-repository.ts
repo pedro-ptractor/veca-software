@@ -34,6 +34,7 @@ export class UserPrismaRepository {
         email: true,
         phone: true,
         createdAt: true,
+        role: true,
       },
     });
   }

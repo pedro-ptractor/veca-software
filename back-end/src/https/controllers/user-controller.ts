@@ -1,5 +1,5 @@
-import type { FastifyReply, FastifyRequest } from 'fastify';
 import z from 'zod';
+import type { FastifyReply, FastifyRequest } from 'fastify';
 import { UserService } from '../../services/user-service.js';
 import { GoogleAuthService } from '../../services/google-auth-service.js';
 
@@ -24,9 +24,17 @@ export async function register(request: FastifyRequest, reply: FastifyReply) {
       phone,
     });
 
-    const token = await reply.jwtSign({ userId: user.id });
+    const token = await reply.jwtSign({ sub: user.id, role: user.role });
 
-    return reply.status(201).send({ user, token });
+    return reply.status(201).send({
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+      },
+      token,
+    });
   } catch (error) {
     console.log(error);
     throw error;
@@ -43,9 +51,17 @@ export async function googleAuth(request: FastifyRequest, reply: FastifyReply) {
 
     const user = await googleAuthService.registerOrLogin(idToken);
 
-    const token = await reply.jwtSign({ userId: user.id });
+    const token = await reply.jwtSign({ sub: user.id, role: user.role });
 
-    return reply.status(200).send({ user, token });
+    return reply.status(200).send({
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+      },
+      token,
+    });
   } catch (error) {
     console.log(error);
     throw error;
@@ -63,12 +79,14 @@ export async function login(request: FastifyRequest, reply: FastifyReply) {
 
     const user = await userService.login({ email, password });
 
-    const token = await reply.jwtSign({ userId: user.id });
+    const token = await reply.jwtSign({ sub: user.id, role: user.role });
 
     return reply.status(200).send({
       user: {
+        id: user.id,
         email: user.email,
         name: user.name,
+        role: user.role,
       },
       token,
     });
